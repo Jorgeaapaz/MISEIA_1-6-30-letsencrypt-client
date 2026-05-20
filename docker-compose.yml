@@ -1,0 +1,18 @@
+services:
+  pebble:
+    image: ghcr.io/letsencrypt/pebble:latest
+    command: -config /test/config/pebble-config.json
+    ports:
+      - "14000:14000"
+      - "15000:15000"
+    environment:
+      - PEBBLE_VA_NOSLEEP=1
+      - PEBBLE_WFE_NONCEREJECT=0
+    extra_hosts:
+      # Los dominios de prueba apuntan al host (donde corre el challenge server)
+      - "test1.example.com:host-gateway"
+      - "test2.example.com:host-gateway"
+      - "www.test1.example.com:host-gateway"
+      - "www.test2.example.com:host-gateway"
+    volumes:
+      - ./docker/pebble-config.json:/test/config/pebble-config.json

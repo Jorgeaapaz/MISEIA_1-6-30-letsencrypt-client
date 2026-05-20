@@ -1,0 +1,5 @@
+target/
+certs/
+*.pem
+*.der
+test-app/node_modules/
