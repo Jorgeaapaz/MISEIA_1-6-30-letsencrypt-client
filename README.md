@@ -232,3 +232,10 @@ $ curl --cacert docker/pebble-root-ca.pem https://test1.example.com:8443/health
 - [Pebble — ACME Test Server](https://github.com/letsencrypt/pebble)
 - [rcgen — Rust CSR/Certificate Generation](https://docs.rs/rcgen)
 - [ring — Rust Cryptography](https://docs.rs/ring)
+
+---
+
+## Updates — 2026-06-09
+
+- **`RUN_TEST_and_STOP.md` added** — comprehensive step-by-step guide (13 sections) covering: project architecture explanation for each component, one-time Windows setup, building the Rust binary, fetching the Pebble CA, testing existing certificates (test1, test2), issuing a simple cert (test3.example.com), issuing a multi-domain cert (test4.example.com + www.test4.example.com), understanding the three certificate files (`privkey.pem`, `cert.pem`, `fullchain.pem`), verifying with the Express test app, and stopping all services. Includes explicit terminal labels (PowerShell, Elevated PowerShell, Git Bash) for every command.
+- **`docker-compose.yml` updated** — added `extra_hosts` entries for `test3.example.com`, `test4.example.com`, and `www.test4.example.com` so Pebble can resolve those domains to the host machine during HTTP-01 challenge validation.

@@ -14,5 +14,8 @@ services:
       - "test2.example.com:host-gateway"
       - "www.test1.example.com:host-gateway"
       - "www.test2.example.com:host-gateway"
+      - "test3.example.com:host-gateway"
+      - "test4.example.com:host-gateway"
+      - "www.test4.example.com:host-gateway"
     volumes:
       - ./docker/pebble-config.json:/test/config/pebble-config.json
