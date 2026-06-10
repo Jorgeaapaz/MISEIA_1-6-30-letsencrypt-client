@@ -338,12 +338,14 @@ node test-app\server.js
 
 > **Terminal: Git Bash**
 
+> **Windows note:** curl on Windows uses the `schannel` SSL backend, which tries to check certificate revocation (CRL/OCSP). Pebble test certificates have no revocation URLs, so schannel fails with `CERT_TRUST_REVOCATION_STATUS_UNKNOWN`. `--ssl-no-revoke` disables revocation checking without skipping CA verification. `-v` shows the TLS handshake details for easier debugging.
+
 ```bash
 # Root endpoint
-curl --cacert docker/pebble-root-ca.pem https://test1.example.com:8443/
+curl --cacert docker/pebble-root-ca.pem --ssl-no-revoke -v https://test1.example.com:8443/
 
 # Health check
-curl --cacert docker/pebble-root-ca.pem https://test1.example.com:8443/health
+curl --cacert docker/pebble-root-ca.pem --ssl-no-revoke -v https://test1.example.com:8443/health
 ```
 
 Expected `/` response:
@@ -377,10 +379,10 @@ node test-app\server.js
 
 ```bash
 # Primary domain
-curl --cacert docker/pebble-root-ca.pem https://test2.example.com:8443/
+curl --cacert docker/pebble-root-ca.pem --ssl-no-revoke -v https://test2.example.com:8443/
 
 # Alternate name covered by the same certificate
-curl --cacert docker/pebble-root-ca.pem https://www.test2.example.com:8443/
+curl --cacert docker/pebble-root-ca.pem --ssl-no-revoke -v https://www.test2.example.com:8443/
 ```
 
 Both requests use the same certificate (stored under `test2.example.com`). The TLS handshake succeeds for `www.test2.example.com` because that name is listed in the SAN extension.
@@ -701,10 +703,10 @@ In a **second Git Bash window**, test the endpoints:
 
 ```bash
 # Main endpoint
-curl --cacert docker/pebble-root-ca.pem https://test3.example.com:8443/
+curl --cacert docker/pebble-root-ca.pem --ssl-no-revoke -v https://test3.example.com:8443/
 
 # Health check
-curl --cacert docker/pebble-root-ca.pem https://test3.example.com:8443/health
+curl --cacert docker/pebble-root-ca.pem --ssl-no-revoke -v https://test3.example.com:8443/health
 ```
 
 Expected response for `/`:
@@ -743,10 +745,10 @@ node test-app\server.js
 
 ```bash
 # Test primary domain
-curl --cacert docker/pebble-root-ca.pem https://test4.example.com:8443/
+curl --cacert docker/pebble-root-ca.pem --ssl-no-revoke -v https://test4.example.com:8443/
 
 # Test alternate name (same cert, same server)
-curl --cacert docker/pebble-root-ca.pem https://www.test4.example.com:8443/
+curl --cacert docker/pebble-root-ca.pem --ssl-no-revoke -v https://www.test4.example.com:8443/
 ```
 
 Both requests should succeed. The response for `www.test4.example.com` will confirm `san` contains both names:
@@ -770,10 +772,12 @@ This confirms your cert is properly signed — not just self-signed:
 
 ```bash
 # Should FAIL — curl cannot verify Pebble's CA by default
-curl https://test3.example.com:8443/
+curl --ssl-no-revoke -v https://test3.example.com:8443/
 ```
 
 Expected error: `SSL certificate problem: unable to get local issuer certificate`
+
+> `--ssl-no-revoke` is kept here so the failure is about the missing CA (the meaningful assertion), not about revocation — which would mask the real error on Windows.
 
 ---
 
@@ -885,6 +889,9 @@ certs/
 ---
 
 ## Troubleshooting
+
+**`curl: (60) schannel: CertGetCertificateChain trust error CERT_TRUST_REVOCATION_STATUS_UNKNOWN`**
+curl on Windows uses the `schannel` SSL backend, which checks certificate revocation via CRL or OCSP. Pebble test certificates have no revocation URLs, so schannel cannot complete the check and fails hard. Fix: always pass `--ssl-no-revoke` to disable revocation checking. This flag does **not** skip CA verification — the `--cacert` check still runs. Do not confuse it with `-k`/`--insecure`, which disables all TLS verification.
 
 **Port 5002 already in use**
 ```powershell
