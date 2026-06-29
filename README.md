@@ -371,6 +371,16 @@ $ curl --cacert docker/pebble-root-ca.pem https://test1.example.com:8443/health
 
 ---
 
+## Architecture Decisions
+
+Key design choices are documented as ADRs in [`docs/decisions/`](docs/decisions/):
+
+- [ADR-001: ECDSA P-256 for ACME account keys](docs/decisions/ADR-001-ecdsa-p256-account-key.md)
+- [ADR-002: Axum for the HTTP-01 challenge server](docs/decisions/ADR-002-axum-challenge-server.md)
+- [ADR-003: Per-domain PEM file storage](docs/decisions/ADR-003-per-domain-pem-storage.md)
+
+---
+
 ## References
 
 - [RFC 8555 — ACME Protocol](https://www.rfc-editor.org/rfc/rfc8555)
