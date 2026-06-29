@@ -235,6 +235,15 @@ $ curl --cacert docker/pebble-root-ca.pem https://test1.example.com:8443/health
 
 ---
 
+## Updates — 2026-06-29 (Phase 1 — Linter + Tests)
+
+- **`rustfmt.toml` added** — stable rustfmt configuration (`edition = "2021"`, `max_width = 100`). Run `cargo fmt -- --check` to verify formatting.
+- **`clippy.toml` added** — Clippy configuration with `msrv = "1.70"`. Run `cargo clippy -- -D warnings` to lint.
+- **`Cargo.toml` updated** — added `[lints]` section (`dead_code = "warn"`, `unwrap_used = "warn"`); added `tempfile = "3"` dev-dependency for test isolation.
+- **17 automated tests added** — 14 unit tests across `crypto.rs` (5), `directory.rs` (2), `csr.rs` (3), `storage.rs` (4); 3 integration tests in `tests/integration_crypto.rs` (binary help, subcommand help, graceful error). Run with `cargo test`.
+- **`tests/integration_crypto.rs` added** — integration tests that call the compiled binary via `CARGO_BIN_EXE_acme-client`.
+- **Clippy fixes** — `challenge.rs` `unwrap()` calls annotated with `#[allow]` and reasoning comments; `main.rs` `&PathBuf` changed to `&std::path::Path`; `storage.rs` `unwrap()` replaced with `.context()`.
+
 ## Updates — 2026-06-29
 
 - **`index.html` added** — static project description page at the repository root. Self-contained HTML5 with inline CSS (dark developer theme); covers features, ACME flow steps, CLI quick-start, tech stack badges, and links to the GitHub and GitLab repositories. No external dependencies.

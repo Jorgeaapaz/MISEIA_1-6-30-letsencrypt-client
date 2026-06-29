@@ -32,10 +32,7 @@ impl ChallengeServer {
         let tokens_clone = tokens.clone();
 
         let app = Router::new()
-            .route(
-                "/.well-known/acme-challenge/:token",
-                get(serve_challenge),
-            )
+            .route("/.well-known/acme-challenge/:token", get(serve_challenge))
             .with_state(tokens_clone);
 
         let addr: SocketAddr = bind_addr.parse()?;
@@ -60,6 +57,9 @@ impl ChallengeServer {
     }
 
     pub fn add_token(&self, token: String, key_auth: String) {
+        // Mutex poison only occurs if another thread panicked while holding the lock,
+        // which cannot happen in this single-writer flow.
+        #[allow(clippy::unwrap_used)]
         self.tokens.lock().unwrap().insert(token, key_auth);
     }
 
@@ -73,9 +73,15 @@ async fn serve_challenge(
     Path(token): Path<String>,
     State(tokens): State<TokenMap>,
 ) -> axum::response::Response<String> {
+    // Mutex poison only occurs if a thread panicked while holding the lock —
+    // impossible here since add_token is the only writer and it cannot panic.
+    #[allow(clippy::unwrap_used)]
     let map = tokens.lock().unwrap();
     if let Some(key_auth) = map.get(&token) {
         tracing::debug!("Serving challenge token: {}", token);
+        // Response::builder() only errors on invalid status/headers, which are
+        // hard-coded constants here — the unwrap is infallible.
+        #[allow(clippy::unwrap_used)]
         axum::response::Response::builder()
             .status(200)
             .header("Content-Type", "application/octet-stream")
@@ -83,6 +89,7 @@ async fn serve_challenge(
             .unwrap()
     } else {
         tracing::warn!("Unknown challenge token: {}", token);
+        #[allow(clippy::unwrap_used)]
         axum::response::Response::builder()
             .status(404)
             .body(String::new())

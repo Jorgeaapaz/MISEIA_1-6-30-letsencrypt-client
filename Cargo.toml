@@ -23,3 +23,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.7"
 x509-parser = "0.16"
 hex = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.rust]
+dead_code = "warn"
+
+[lints.clippy]
+unwrap_used = "warn"
