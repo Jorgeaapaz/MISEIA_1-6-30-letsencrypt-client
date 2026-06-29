@@ -1,0 +1,53 @@
+stages:
+  - lint
+  - test
+  - deploy
+
+.cargo-cache: &cargo-cache
+  cache:
+    key: cargo-$CI_COMMIT_REF_SLUG
+    paths:
+      - target/
+      - .cargo/registry/
+
+fmt:
+  stage: lint
+  image: rust:latest
+  <<: *cargo-cache
+  script:
+    - rustup component add rustfmt
+    - cargo fmt -- --check
+
+clippy:
+  stage: lint
+  image: rust:latest
+  <<: *cargo-cache
+  script:
+    - rustup component add clippy
+    - cargo clippy -- -D warnings
+
+test:
+  stage: test
+  image: rust:latest
+  <<: *cargo-cache
+  script:
+    - cargo test
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  before_script:
+    - apk add --no-cache openssh-client curl
+    - mkdir -p ~/.ssh
+    - echo "$VM_SSH_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan "$VM_HOST" >> ~/.ssh/known_hosts
+  script:
+    - scp docker-compose.prod.yml index.html
+        "$VM_USER@$VM_HOST:~/MISEIA_1-6-30-letsencrypt-client/"
+    - ssh "$VM_USER@$VM_HOST"
+        "cd ~/MISEIA_1-6-30-letsencrypt-client &&
+         docker compose -f docker-compose.prod.yml up -d"
+    - curl -sf https://letsencrypt-client.deviaaps.com
