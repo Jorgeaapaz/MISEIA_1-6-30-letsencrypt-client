@@ -12,11 +12,7 @@ pub struct AcmeClient {
 }
 
 impl AcmeClient {
-    pub async fn new(
-        acme_url: &str,
-        account_key: AccountKey,
-        insecure_tls: bool,
-    ) -> Result<Self> {
+    pub async fn new(acme_url: &str, account_key: AccountKey, insecure_tls: bool) -> Result<Self> {
         let http = build_http_client(insecure_tls)?;
         let directory = Directory::fetch(&http, acme_url).await?;
         Ok(Self {
@@ -88,8 +84,7 @@ pub fn extract_nonce(resp: &Response) -> Result<String> {
 }
 
 fn build_http_client(insecure_tls: bool) -> Result<reqwest::Client> {
-    let mut builder = reqwest::Client::builder()
-        .user_agent("acme-client-rust/0.1");
+    let mut builder = reqwest::Client::builder().user_agent("acme-client-rust/0.1");
 
     if insecure_tls {
         builder = builder.danger_accept_invalid_certs(true);

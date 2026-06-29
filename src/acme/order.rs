@@ -48,10 +48,7 @@ pub struct OrderMeta {
 }
 
 /// Create a new order for the given domains.
-pub async fn create_order(
-    client: &AcmeClient,
-    domains: &[String],
-) -> Result<(String, Order)> {
+pub async fn create_order(client: &AcmeClient, domains: &[String]) -> Result<(String, Order)> {
     let identifiers: Vec<_> = domains
         .iter()
         .map(|d| json!({ "type": "dns", "value": d }))
@@ -111,10 +108,7 @@ pub async fn solve_challenges(
 
         let key_auth = key_authorization(&http_challenge.token, &thumbprint);
         server.add_token(http_challenge.token.clone(), key_auth);
-        tracing::info!(
-            "Registered token for {}",
-            auth.identifier.value
-        );
+        tracing::info!("Registered token for {}", auth.identifier.value);
 
         // Notify server the challenge is ready
         client
@@ -138,7 +132,8 @@ async fn poll_authorization(client: &AcmeClient, auth_url: &str) -> Result<()> {
         sleep(Duration::from_secs(2)).await;
         let resp = client.post_as_get(auth_url).await?;
         let body = resp.text().await?;
-        let auth: Authorization = serde_json::from_str(&body).context("parse Authorization poll")?;
+        let auth: Authorization =
+            serde_json::from_str(&body).context("parse Authorization poll")?;
 
         tracing::info!(
             "Authorization poll #{} for {}: {}",
@@ -149,10 +144,7 @@ async fn poll_authorization(client: &AcmeClient, auth_url: &str) -> Result<()> {
 
         match auth.status.as_str() {
             "valid" => return Ok(()),
-            "invalid" => anyhow::bail!(
-                "Authorization invalid for {}",
-                auth.identifier.value
-            ),
+            "invalid" => anyhow::bail!("Authorization invalid for {}", auth.identifier.value),
             _ => {}
         }
     }
@@ -184,9 +176,14 @@ fn check_order_valid(initial_body: &str) -> Result<String> {
     let order: Order = serde_json::from_str(initial_body).context("parse Order after finalize")?;
     tracing::info!("Order status after finalize: {}", order.status);
     match order.status.as_str() {
-        "valid" => order.certificate.context("Order valid but no certificate URL"),
+        "valid" => order
+            .certificate
+            .context("Order valid but no certificate URL"),
         "invalid" => anyhow::bail!("Order became invalid"),
-        _ => anyhow::bail!("Order not yet valid (status={}), need to poll", order.status),
+        _ => anyhow::bail!(
+            "Order not yet valid (status={}), need to poll",
+            order.status
+        ),
     }
 }
 
