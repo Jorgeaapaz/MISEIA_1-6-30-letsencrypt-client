@@ -235,6 +235,12 @@ $ curl --cacert docker/pebble-root-ca.pem https://test1.example.com:8443/health
 
 ---
 
+## Updates — 2026-06-29
+
+- **`index.html` added** — static project description page at the repository root. Self-contained HTML5 with inline CSS (dark developer theme); covers features, ACME flow steps, CLI quick-start, tech stack badges, and links to the GitHub and GitLab repositories. No external dependencies.
+- **`docs/prompts/` directory added** — stores disciplined feature prompt files. First entry: `feature_001_project_html_page_prompt.md`.
+- **`.gitignore` updated** — `vid/` directory excluded from version control.
+
 ## Updates — 2026-06-09
 
 - **`RUN_TEST_and_STOP.md` added** — comprehensive step-by-step guide (13 sections) covering: project architecture explanation for each component, one-time Windows setup, building the Rust binary, fetching the Pebble CA, testing existing certificates (test1, test2), issuing a simple cert (test3.example.com), issuing a multi-domain cert (test4.example.com + www.test4.example.com), understanding the three certificate files (`privkey.pem`, `cert.pem`, `fullchain.pem`), verifying with the Express test app, and stopping all services. Includes explicit terminal labels (PowerShell, Elevated PowerShell, Git Bash) for every command.
