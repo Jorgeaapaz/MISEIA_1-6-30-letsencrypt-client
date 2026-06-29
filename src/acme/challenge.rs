@@ -96,3 +96,27 @@ async fn serve_challenge(
             .unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_key_authorization_format() {
+        let ka = key_authorization("my-token", "my-thumbprint");
+        assert_eq!(ka, "my-token.my-thumbprint");
+    }
+
+    #[test]
+    fn test_key_authorization_no_extra_chars() {
+        let ka = key_authorization("abc", "xyz");
+        assert_eq!(ka.matches('.').count(), 1, "must contain exactly one dot");
+    }
+
+    #[tokio::test]
+    async fn test_challenge_server_start_add_stop() {
+        let server = ChallengeServer::start("127.0.0.1:19080").await.unwrap();
+        server.add_token("tok1".to_string(), "tok1.thumbprint".to_string());
+        server.stop();
+    }
+}

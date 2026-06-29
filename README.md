@@ -1,5 +1,7 @@
 # ACME Client in Rust — Let's Encrypt / Pebble
 
+![Coverage](https://img.shields.io/badge/coverage-47%25-brightgreen) ![Tests](https://img.shields.io/badge/tests-26%20passing-brightgreen)
+
 A **Rust 2021 CLI tool** that implements the full ACME protocol (RFC 8555) to automatically obtain TLS certificates from Let's Encrypt (or a local Pebble test server), validating domain ownership via HTTP-01 challenges and persisting the resulting certificates to disk.
 
 ---
