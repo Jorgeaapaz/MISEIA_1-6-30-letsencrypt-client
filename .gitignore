@@ -4,3 +4,5 @@ certs/
 *.der
 test-app/node_modules/
 vid/
+.env
+.env.production
