@@ -22,7 +22,10 @@ impl AccountKey {
         let pkcs8_der = pkcs8_doc.as_ref().to_vec();
         let key_pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &pkcs8_der, &rng)
             .map_err(|e| anyhow::anyhow!("Failed to load generated key pair: {:?}", e))?;
-        Ok(Self { key_pair, pkcs8_der })
+        Ok(Self {
+            key_pair,
+            pkcs8_der,
+        })
     }
 
     /// Load from PKCS#8 DER bytes.
@@ -116,5 +119,86 @@ impl AccountKey {
             "payload": payload_b64,
             "signature": sig_b64
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn test_generate_account_key_roundtrip() {
+        let key = AccountKey::generate().unwrap();
+        assert!(!key.pkcs8_der.is_empty());
+        let key2 = AccountKey::from_pkcs8(&key.pkcs8_der).unwrap();
+        assert_eq!(key2.pkcs8_der, key.pkcs8_der);
+    }
+
+    #[test]
+    fn test_jwk_has_required_fields() {
+        let key = AccountKey::generate().unwrap();
+        let jwk = key.jwk();
+        assert_eq!(jwk["kty"], "EC");
+        assert_eq!(jwk["crv"], "P-256");
+        assert!(jwk["x"].is_string());
+        assert!(jwk["y"].is_string());
+    }
+
+    #[test]
+    fn test_jwk_thumbprint_deterministic() {
+        let key = AccountKey::generate().unwrap();
+        let t1 = key.jwk_thumbprint().unwrap();
+        let t2 = key.jwk_thumbprint().unwrap();
+        assert_eq!(t1, t2);
+        assert!(!t1.is_empty());
+    }
+
+    #[test]
+    fn test_jws_structure_with_payload() {
+        let key = AccountKey::generate().unwrap();
+        let payload = serde_json::json!({"resource": "new-account"});
+        let jws = key
+            .sign_jws(
+                Some(&payload),
+                "https://acme.example.com/new-account",
+                "nonce123",
+                None,
+            )
+            .unwrap();
+        assert!(jws["protected"].is_string());
+        assert!(jws["payload"].is_string());
+        assert!(jws["signature"].is_string());
+        // Without kid, JWK must be embedded in the header
+        let header_b64 = jws["protected"].as_str().unwrap();
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+        let header_json = URL_SAFE_NO_PAD.decode(header_b64).unwrap();
+        let header: serde_json::Value = serde_json::from_slice(&header_json).unwrap();
+        assert!(header["jwk"].is_object());
+        assert!(header.get("kid").is_none());
+    }
+
+    #[test]
+    fn test_jws_post_as_get_with_kid() {
+        let key = AccountKey::generate().unwrap();
+        let jws = key
+            .sign_jws(
+                None,
+                "https://acme.example.com/order/1",
+                "nonce456",
+                Some("https://acme.example.com/account/1"),
+            )
+            .unwrap();
+        // POST-as-GET: payload must be the empty string
+        assert_eq!(jws["payload"].as_str().unwrap(), "");
+        let header_b64 = jws["protected"].as_str().unwrap();
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+        let header_json = URL_SAFE_NO_PAD.decode(header_b64).unwrap();
+        let header: serde_json::Value = serde_json::from_slice(&header_json).unwrap();
+        assert_eq!(
+            header["kid"].as_str().unwrap(),
+            "https://acme.example.com/account/1"
+        );
+        assert!(header.get("jwk").is_none());
     }
 }

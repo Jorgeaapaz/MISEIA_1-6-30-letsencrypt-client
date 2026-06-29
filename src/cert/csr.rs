@@ -32,3 +32,40 @@ pub fn generate_csr(domains: &[String]) -> Result<GeneratedCsr> {
         private_key_pem,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    #[allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn test_generate_csr_single_domain() {
+        let domains = vec!["test.example.com".to_string()];
+        let result = generate_csr(&domains).unwrap();
+        assert!(!result.csr_b64.is_empty(), "CSR base64 must not be empty");
+        assert!(
+            result.private_key_pem.contains("PRIVATE KEY"),
+            "private key PEM must contain PRIVATE KEY header"
+        );
+    }
+
+    #[test]
+    fn test_generate_csr_multi_domain() {
+        let domains = vec![
+            "test1.example.com".to_string(),
+            "www.test1.example.com".to_string(),
+        ];
+        let result = generate_csr(&domains).unwrap();
+        assert!(!result.csr_b64.is_empty());
+        assert!(!result.private_key_pem.is_empty());
+    }
+
+    #[test]
+    fn test_generate_csr_produces_unique_keys() {
+        let domains = vec!["test.example.com".to_string()];
+        let r1 = generate_csr(&domains).unwrap();
+        let r2 = generate_csr(&domains).unwrap();
+        // Two calls must produce different keys (fresh key pair each time)
+        assert_ne!(r1.private_key_pem, r2.private_key_pem);
+    }
+}

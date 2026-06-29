@@ -9,7 +9,9 @@ use acme::{
     account::ensure_account,
     client::AcmeClient,
     crypto::AccountKey,
-    order::{create_order, download_certificate, finalize_order, poll_order_by_url, solve_challenges},
+    order::{
+        create_order, download_certificate, finalize_order, poll_order_by_url, solve_challenges,
+    },
 };
 use cert::{
     csr::generate_csr,
@@ -17,7 +19,11 @@ use cert::{
 };
 
 #[derive(Parser)]
-#[command(name = "acme-client", version, about = "ACME (RFC 8555) certificate client")]
+#[command(
+    name = "acme-client",
+    version,
+    about = "ACME (RFC 8555) certificate client"
+)]
 struct Cli {
     /// ACME directory URL
     #[arg(
@@ -33,7 +39,12 @@ struct Cli {
     output: PathBuf,
 
     /// Disable TLS certificate verification (for Pebble)
-    #[arg(long, global = true, default_value = "false", env = "ACME_INSECURE_TLS")]
+    #[arg(
+        long,
+        global = true,
+        default_value = "false",
+        env = "ACME_INSECURE_TLS"
+    )]
     insecure: bool,
 
     /// Challenge server bind address (host:port)
@@ -110,7 +121,7 @@ async fn issue_certificate(
     acme_url: &str,
     domains: &[String],
     email: &str,
-    output: &PathBuf,
+    output: &std::path::Path,
     insecure: bool,
     challenge_bind: &str,
 ) -> Result<()> {
