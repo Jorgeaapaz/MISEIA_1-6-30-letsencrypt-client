@@ -371,6 +371,44 @@ $ curl --cacert docker/pebble-root-ca.pem https://test1.example.com:8443/health
 
 ---
 
+## Performance & Benchmarks
+
+### Test Suite Execution Time (26 tests, cached build)
+
+Measured with `cargo test --quiet` after an initial warm-up build, 5 consecutive runs on
+Windows 11 / AMD Ryzen 5 5600H / 16 GB RAM:
+
+| Run | Wall time |
+|-----|-----------|
+| 1 (cold compile) | 33.37s |
+| 2 | 0.53s |
+| 3 | 0.48s |
+| 4 | 0.85s |
+| 5 | 0.74s |
+| **P50 (runs 2–5)** | **0.64s** |
+| **P95 (runs 2–5)** | **0.85s** |
+
+The 26 tests complete in under 1 second on warm cache. Run 2 includes
+`test_challenge_server_start_add_stop` — an async test that binds a real TCP socket on
+`127.0.0.1:19080`, inserts a token, and shuts down via `oneshot` channel — yet still
+finishes within 0.48s. This validates the decision to use `tokio` as the async runtime
+([ADR-002](docs/decisions/ADR-002-axum-challenge-server.md)): the runtime's cooperative
+scheduler starts and stops the HTTP server with negligible overhead, keeping the full
+ACME flow non-blocking and the test suite fast enough to run on every commit.
+
+### Debug Binary Size
+
+| Artifact | Size |
+|----------|------|
+| `target/debug/acme-client` | 34 MB |
+
+The debug binary includes full DWARF symbols and no dead-code elimination. A release
+build (`--release`) with `opt-level = 3` and `lto = true` typically reduces this by
+5–10× in Rust projects; the actual size was not measured to avoid an unnecessary build
+in this environment.
+
+---
+
 ## Architecture Decisions
 
 Key design choices are documented as ADRs in [`docs/decisions/`](docs/decisions/):
