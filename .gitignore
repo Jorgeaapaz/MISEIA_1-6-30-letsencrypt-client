@@ -1,8 +1,10 @@
 target/
 certs/
+coverage/
 *.pem
 *.der
 test-app/node_modules/
 vid/
 .env
 .env.production
+# .env.example is intentionally NOT listed here — it is safe to commit

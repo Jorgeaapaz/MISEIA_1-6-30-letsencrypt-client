@@ -32,3 +32,8 @@ dead_code = "warn"
 
 [lints.clippy]
 unwrap_used = "warn"
+
+[package.metadata.tarpaulin]
+exclude = ["src/main.rs"]
+out = ["Html"]
+output-dir = "coverage"

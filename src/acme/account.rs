@@ -58,7 +58,9 @@ pub async fn ensure_account(
         "contact": [format!("mailto:{}", email)]
     });
 
-    let resp = client.post(&client.directory.new_account.clone(), Some(&payload)).await?;
+    let resp = client
+        .post(&client.directory.new_account.clone(), Some(&payload))
+        .await?;
 
     if !resp.status().is_success() && resp.status().as_u16() != 201 {
         let status = resp.status();
@@ -85,4 +87,59 @@ pub async fn ensure_account(
 
     client.account_url = Some(account_url);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[allow(clippy::unwrap_used)]
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_account_info_save_and_load_roundtrip() {
+        let tmp = TempDir::new().unwrap();
+        let info = AccountInfo {
+            account_url: "https://acme.example.com/account/1".to_string(),
+            pkcs8_hex: "deadbeef".to_string(),
+        };
+        info.save(tmp.path()).unwrap();
+        let loaded = AccountInfo::load(tmp.path()).unwrap().unwrap();
+        assert_eq!(loaded.account_url, info.account_url);
+        assert_eq!(loaded.pkcs8_hex, info.pkcs8_hex);
+    }
+
+    #[test]
+    fn test_account_info_load_returns_none_when_missing() {
+        let tmp = TempDir::new().unwrap();
+        let result = AccountInfo::load(tmp.path()).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_account_info_save_creates_directory() {
+        let tmp = TempDir::new().unwrap();
+        let nested = tmp.path().join("a").join("b").join("accounts");
+        let info = AccountInfo {
+            account_url: "https://acme.example.com/account/42".to_string(),
+            pkcs8_hex: "cafebabe".to_string(),
+        };
+        info.save(&nested).unwrap();
+        assert!(nested.join("account.json").exists());
+    }
+
+    #[test]
+    fn test_account_info_serialization_is_valid_json() {
+        let tmp = TempDir::new().unwrap();
+        let info = AccountInfo {
+            account_url: "https://acme.example.com/account/5".to_string(),
+            pkcs8_hex: "0011223344".to_string(),
+        };
+        info.save(tmp.path()).unwrap();
+        let raw = std::fs::read_to_string(tmp.path().join("account.json")).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(
+            parsed["account_url"].as_str().unwrap(),
+            "https://acme.example.com/account/5"
+        );
+    }
 }

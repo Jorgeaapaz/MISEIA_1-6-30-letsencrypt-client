@@ -157,4 +157,31 @@ mod tests {
         );
         assert!(!privkey_str.contains('*'), "'*' must not remain in path");
     }
+
+    fn make_self_signed_cert_pem() -> String {
+        use rcgen::{CertificateParams, KeyPair};
+        let params = CertificateParams::new(vec!["show.example.com".to_string()]).unwrap();
+        let key_pair = KeyPair::generate().unwrap();
+        let cert = params.self_signed(&key_pair).unwrap();
+        cert.pem()
+    }
+
+    #[test]
+    fn test_show_certificate_returns_ok_for_valid_cert() {
+        let tmp = TempDir::new().unwrap();
+        let cert_pem = make_self_signed_cert_pem();
+        save_certificate(tmp.path(), "show.example.com", FAKE_KEY, &cert_pem).unwrap();
+        let result = show_certificate(tmp.path(), "show.example.com");
+        assert!(
+            result.is_ok(),
+            "show_certificate must succeed with a valid cert: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_show_certificate_errors_for_missing_domain() {
+        let tmp = TempDir::new().unwrap();
+        let result = show_certificate(tmp.path(), "missing.example.com");
+        assert!(result.is_err());
+    }
 }
