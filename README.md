@@ -4,6 +4,17 @@ A **Rust 2021 CLI tool** that implements the full ACME protocol (RFC 8555) to au
 
 ---
 
+## Live Deploy
+
+The project description page is publicly accessible at:
+
+**<https://letsencrypt-client.deviaaps.com>**
+
+Served by `nginx:alpine` behind Traefik v3.3 on a GCP VM (`34.174.56.186`).  
+TLS certificate issued by Let's Encrypt (wildcard `*.deviaaps.com` via Cloudflare DNS-01).
+
+---
+
 ## Commands Implemented
 
 ### `issue` — Obtain a New Certificate
@@ -89,6 +100,118 @@ All HTTP requests to the ACME server are signed with ECDSA P-256 (ES256) using J
 
 ---
 
+## Architecture
+
+### ACME Protocol Flow
+
+```mermaid
+sequenceDiagram
+    participant CLI as acme-client CLI
+    participant ACME as ACME Server
+    participant Axum as Challenge Server (Axum :5002)
+    participant FS as Filesystem (certs/)
+
+    CLI->>ACME: GET /directory
+    ACME-->>CLI: directory URLs
+    CLI->>ACME: HEAD newNonce
+    ACME-->>CLI: Replay-Nonce
+    CLI->>ACME: POST newAccount (JWS + JWK)
+    ACME-->>CLI: accountUrl
+    CLI->>ACME: POST newOrder (domains)
+    ACME-->>CLI: order + authz URLs
+    CLI->>ACME: GET authz URL
+    ACME-->>CLI: HTTP-01 challenge token
+    CLI->>Axum: start (token + keyAuthorization)
+    CLI->>ACME: POST challenge URL (ready)
+    ACME->>Axum: GET /.well-known/acme-challenge/<token>
+    Axum-->>ACME: keyAuthorization
+    CLI->>ACME: Poll order status
+    ACME-->>CLI: status: ready
+    CLI->>ACME: POST finalize (CSR DER)
+    ACME-->>CLI: status: valid + certUrl
+    CLI->>ACME: GET certUrl
+    ACME-->>CLI: certificate chain PEM
+    CLI->>FS: save privkey.pem, cert.pem, fullchain.pem
+```
+
+### Module Dependency Graph
+
+```mermaid
+graph TD
+    main["main.rs (CLI / clap)"]
+    client["acme/client.rs (AcmeClient)"]
+    account["acme/account.rs"]
+    order["acme/order.rs"]
+    challenge["acme/challenge.rs (Axum)"]
+    crypto["acme/crypto.rs (ECDSA/JWS)"]
+    directory["acme/directory.rs"]
+    csr["cert/csr.rs (rcgen)"]
+    storage["cert/storage.rs"]
+
+    main --> client
+    main --> account
+    main --> order
+    main --> csr
+    main --> storage
+    client --> crypto
+    client --> directory
+    order --> challenge
+    order --> client
+    account --> client
+```
+
+---
+
+## Deployment
+
+The project description page (`index.html`) is served by `nginx:alpine` behind Traefik v3.3 on a GCP VM.
+Live URL: **<https://letsencrypt-client.deviaaps.com>**
+
+### Prerequisites
+
+- SSH access: `ssh -i C:\ubuntuiso\.ssh\vboxuser gcvmuser@34.174.56.186`
+- Docker network `miseia-net` already running on the VM
+- Traefik v3.3 with `cloudflare` cert resolver for `*.deviaaps.com`
+
+### Deploy Steps
+
+**1. Create remote directory** (first time only):
+
+```bash
+ssh -i C:\ubuntuiso\.ssh\vboxuser gcvmuser@34.174.56.186 \
+  "mkdir -p ~/MISEIA_1-6-30-letsencrypt-client"
+```
+
+**2. Copy files to VM:**
+
+```powershell
+scp -i C:\ubuntuiso\.ssh\vboxuser `
+  docker-compose.prod.yml index.html `
+  gcvmuser@34.174.56.186:~/MISEIA_1-6-30-letsencrypt-client/
+```
+
+**3. Start the service:**
+
+```bash
+ssh -i C:\ubuntuiso\.ssh\vboxuser gcvmuser@34.174.56.186 \
+  "cd ~/MISEIA_1-6-30-letsencrypt-client && \
+   docker compose -f docker-compose.prod.yml up -d"
+```
+
+**4. Verify:**
+
+```bash
+# Container running
+ssh gcvmuser@34.174.56.186 "docker ps --filter name=letsencrypt-client-web"
+
+# HTTPS endpoint (PowerShell)
+Invoke-WebRequest -Uri https://letsencrypt-client.deviaaps.com | Select StatusCode
+```
+
+`docker-compose.prod.yml` runs `nginx:alpine` with no exposed ports; Traefik routes HTTPS traffic and handles TLS termination via the `cloudflare` wildcard cert resolver.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -110,6 +233,26 @@ cd MISEIA_1-6-30-letsencrypt-client
 ```bash
 cargo build --release
 # Binary: ./target/release/acme-client
+```
+
+### Lint & Format
+
+```bash
+# Check formatting
+cargo fmt -- --check
+
+# Lint with all warnings as errors
+cargo clippy -- -D warnings
+```
+
+### Test
+
+```bash
+# Run all unit and integration tests
+cargo test
+
+# Run with output visible
+cargo test -- --nocapture
 ```
 
 ### Local Testing with Pebble
@@ -232,6 +375,27 @@ $ curl --cacert docker/pebble-root-ca.pem https://test1.example.com:8443/health
 - [Pebble — ACME Test Server](https://github.com/letsencrypt/pebble)
 - [rcgen — Rust CSR/Certificate Generation](https://docs.rs/rcgen)
 - [ring — Rust Cryptography](https://docs.rs/ring)
+
+---
+
+## AI-Assisted Development
+
+This project used Claude (claude-sonnet-4-6) to generate initial drafts of several modules.
+The table below documents the critical review applied to AI output — the specific changes made
+and the reasoning behind each decision.
+
+| Component | AI Draft Approach | Change Made | Why |
+|---|---|---|---|
+| `acme/challenge.rs` — shutdown | Used `tokio::sync::mpsc` channel for graceful shutdown | Changed to `oneshot` channel | `mpsc` is multi-producer; a single shutdown signal has exactly one sender — `oneshot` encodes this in the type, preventing accidental multiple sends |
+| `acme/challenge.rs` — token state | Passed token map as `Arc<Mutex<HashMap>>` function argument | Moved into `ChallengeServer` struct with `add_token()` method | Encapsulation: callers shouldn't manipulate the map directly; the struct owns its state |
+| `cert/storage.rs` — `save_certificate` | Mixed directory creation and file writing inline in `main.rs` | Extracted to `save_certificate()` function returning `CertPaths` | Storage must be swappable without touching CLI logic; direct write couples the command handler to the filesystem |
+| `src/main.rs` — `issue` and `renew` | Separate match arms with duplicated `issue_certificate()` calls | Merged into a single `Command::Issue { .. } \| Command::Renew { .. }` pattern | DRY — both subcommands share an identical flow; any future divergence belongs in flags, not duplicated arms |
+| `acme/crypto.rs` — JWK order | JWK fields generated in insertion order | Verified canonical order (`crv`, `kty`, `x`, `y`) matches RFC 7638 §3.3 requirement for thumbprint stability | Wrong field order produces a different SHA-256 hash; the AI draft did not explicitly enforce canonical ordering |
+
+**Components written or significantly revised without AI:**
+
+- `scripts/test-issue.sh` — full end-to-end smoke test written manually to match the exact Pebble container environment and Windows/WSL path constraints
+- `docker/pebble-config.json` — derived directly from Pebble documentation; AI draft used the wrong `httpPort` value for the challenge test server
 
 ---
 
